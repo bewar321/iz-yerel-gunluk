@@ -55,7 +55,7 @@ class Insights:
             months = defaultdict(list)
             for entry in entries:
                 months[entry["event_date"][:7]].append(entry)
-            sections, all_findings, all_chunks = [], [], []
+            sections, all_findings = [], []
             rejected = 0
             if mode == "helpful":
                 task = ("Yalnız kullanıcının kendisine yardımcı olduğunu AÇIKÇA yazdığı davranış veya deneyimleri bul. "
@@ -80,7 +80,6 @@ class Insights:
                                  "moods": dict(Counter(e["mood"] or "Etiket yok" for e in month_entries)),
                                  "findings": findings})
                 all_findings.extend(findings)
-                all_chunks.extend(chunks)
             overview = []
             if mode == "period" and all_findings:
                 # Hierarchical reduction; every level retains quotes from original records.
@@ -94,18 +93,29 @@ class Insights:
                     next_level = []
                     for offset in range(0, len(current), 8):
                         group = current[offset:offset+8]
-                        atoms = []
+                        atoms, original_keys = [], {}
                         for finding in group:
-                            # A single original citation supplies each compact evidence atom.
-                            source = finding["sources"][0]
-                            atoms.append({"key": source["key"], "entry_id": source["entry_id"],
-                                          "title": source["title"], "event_date": source["event_date"],
-                                          "written_at": source["written_at"], "text": source["quote"][:350],
-                                          "context": finding["text"][:150]})
-                        raw = self.ai.generate(task, atoms)
-                        checked = validated_findings(raw, atoms)
-                        rejected += len(raw)-len(checked)
-                        next_level.extend(checked[:3])
+                            for source in finding["sources"]:
+                                # Distinct quotes from the same chunk must not overwrite
+                                # one another in the validator's key lookup.
+                                key = "evidence:" + str(len(atoms))
+                                original_keys[key] = source["key"]
+                                atoms.append({"key": key, "entry_id": source["entry_id"],
+                                              "title": source["title"], "event_date": source["event_date"],
+                                              "written_at": source["written_at"], "text": source["quote"],
+                                              "context": finding["text"][:150]})
+                        reduced = []
+                        for evidence in batches(atoms):
+                            raw = self.ai.generate(task, evidence)
+                            checked = validated_findings(raw, evidence)
+                            rejected += len(raw)-len(checked)
+                            for finding in checked:
+                                for source in finding["sources"]:
+                                    source["key"] = original_keys[source["key"]]
+                            reduced.extend(checked)
+                        # Guaranteed contraction even if a model exceeds its requested
+                        # output limit or a group needs several evidence batches.
+                        next_level.extend(reduced[:3])
                     if len(current) <= 8 or not next_level:
                         overview = next_level
                         break

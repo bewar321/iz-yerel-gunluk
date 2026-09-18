@@ -56,3 +56,69 @@ def test_empty_period_and_date_max(tmp_path):
     assert result["message"]
     assert result["coverage"]["gaps"] == [{"start": "2025-01-01", "end": "2025-01-03"}]
     assert coverage([{"event_date": "9999-12-31"}], "9999-12-31", "9999-12-31")["gaps"] == []
+
+
+def test_reduction_preserves_all_citations_and_distinct_quotes(tmp_path):
+    store = Store(tmp_path / "journal.db")
+    first = create(store, "2024-01-01")
+    second = create(store, "2024-01-02")
+
+    class MultiSourceAI:
+        def generate(self, task, chunks):
+            if "context" not in chunks[0]:
+                return [
+                    {"text": "İki tarihte yürüyüş", "kind": "inference", "sources": [
+                        {"key": c["key"], "quote": "Yürüyüş bana iyi geldi."} for c in chunks]},
+                    {"text": "Başlık", "kind": "recorded", "sources": [
+                        {"key": chunks[0]["key"], "quote": "Bir kayıt"}]}]
+            assert len({c["key"] for c in chunks}) == 3
+            assert {c["entry_id"] for c in chunks} == {first["id"], second["id"]}
+            return [{"text": "Karşılaştırma", "kind": "inference", "sources": [
+                {"key": c["key"], "quote": c["text"]} for c in chunks]}]
+
+    result = Insights(store, MultiSourceAI()).analyze("2024-01-01", "2024-01-02")
+    sources = result["overview"][0]["sources"]
+    assert len(sources) == 3
+    assert {s["key"] for s in sources} == {first["id"] + ":0", second["id"] + ":0"}
+    assert result["rejected_findings"] == 0
+
+
+def test_edits_revocation_and_helpful_task(tmp_path):
+    store = Store(tmp_path / "journal.db")
+    entry = create(store, "2024-01-01", kind="decision", reason="Dinlenmek", expectation="Rahatlamak", outcome="Rahatladım")
+
+    class HelpfulAI(ReadingAI):
+        def generate(self, task, chunks):
+            assert "AÇIKÇA" in task and "Genel tavsiye verme" in task
+            return super().generate(task, chunks)
+
+    ai = HelpfulAI()
+    engine = Insights(store, ai)
+    initial = engine.analyze("2024-01-01", "2024-01-31", "helpful")
+    assert all(value in ai.seen[0]["text"] for value in ("Dinlenmek", "Rahatlamak", "Rahatladım"))
+    entry.update(body="Yeni metin", mood="İyi", reason="", expectation="", outcome="")
+    store.save(entry, entry["id"])
+    ai.seen.clear()
+    edited = engine.analyze("2024-01-01", "2024-01-31", "helpful")
+    assert edited["revision"] > initial["revision"]
+    assert edited["sections"][0]["moods"] == {"İyi": 1}
+    assert "Yürüyüş" not in ai.seen[0]["text"]
+    entry["analyze"] = False
+    store.save(entry, entry["id"])
+    ai.seen.clear()
+    revoked = engine.analyze("2024-01-01", "2024-01-31", "helpful")
+    assert not ai.seen and not revoked["sections"]
+    assert revoked["coverage"]["excluded_entries"] == 1
+
+
+def test_insights_api_validation(tmp_path):
+    from journal.app import create_app
+    app = create_app(tmp_path, ReadingAI())
+    client = app.test_client()
+    headers = {"X-Journal-Token": app.config["LOCAL_TOKEN"]}
+    for payload in ([], {}, {"start": "2024-02-01", "end": "2024-01-01"},
+                    {"start": "2024-01-01", "end": "2024-01-31", "mode": "other"}):
+        assert client.post("/api/insights", json=payload, headers=headers).status_code == 400
+    response = client.post("/api/insights", json={"start": "2024-01-01", "end": "2024-01-31"}, headers=headers)
+    assert response.status_code == 200
+    assert response.json["coverage"]["entries"] == 0
