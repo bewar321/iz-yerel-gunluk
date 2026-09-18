@@ -1,0 +1,11 @@
+data/
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+.env
+*.sqlite*
+*.db
+*.log
+.DS_Store
+.codebase-memory/

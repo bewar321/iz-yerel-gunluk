@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yerel-gunluk"
+version = "0.1.0"
+description = "Tamamen yerel, kaynak gösteren kişisel RAG günlüğü"
+requires-python = ">=3.9"
+dependencies = ["Flask==3.1.2", "waitress==3.0.2"]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["journal*"]
+
+[tool.setuptools.package-data]
+journal = ["templates/*.html", "static/*"]
