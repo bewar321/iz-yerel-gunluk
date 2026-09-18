@@ -7,6 +7,8 @@ from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException
 
 from .store import Store, ValidationError
+from .ollama import Ollama, AIError
+from .rag import Engine
 
 
 def create_app(data_dir=None, ai=None):
@@ -14,6 +16,9 @@ def create_app(data_dir=None, ai=None):
     root = Path(data_dir or os.environ.get("JOURNAL_DATA_DIR", Path(__file__).resolve().parent.parent / "data"))
     store = Store(root / "journal.sqlite3")
     app.extensions["store"] = store
+    model = ai or Ollama()
+    engine = Engine(store, model)
+    app.extensions["engine"] = engine
     token = secrets.token_urlsafe(32)
     app.config["LOCAL_TOKEN"] = token
 
@@ -44,6 +49,10 @@ def create_app(data_dir=None, ai=None):
     @app.errorhandler(ValidationError)
     def invalid(exc):
         return jsonify(error=str(exc)), 400
+
+    @app.errorhandler(AIError)
+    def model_error(exc):
+        return jsonify(error=str(exc)), 503
 
     @app.errorhandler(KeyError)
     def missing(exc):
@@ -94,5 +103,20 @@ def create_app(data_dir=None, ai=None):
             raise ValidationError("Geri yükleme mevcut kayıtların yerini alır; onay gerekli.")
         count = store.restore(data.get("backup"))
         return jsonify(count=count, revision=store.revision())
+
+    @app.get("/api/status")
+    def status():
+        return jsonify(model.status())
+
+    @app.get("/api/revision")
+    def revision():
+        return jsonify(revision=store.revision())
+
+    @app.post("/api/ask")
+    def ask():
+        data = request.get_json()
+        if not isinstance(data, dict):
+            raise ValidationError("Geçerli bir soru gönderin.")
+        return jsonify(engine.ask(data.get("question"), data.get("start"), data.get("end")))
 
     return app

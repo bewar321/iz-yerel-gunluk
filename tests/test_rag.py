@@ -1,0 +1,118 @@
+import pytest
+from journal.ollama import AIError, Ollama
+from journal.rag import Engine, chunks_for, validated_findings
+from journal.store import Store
+
+
+class FakeAI:
+    embedding_model = "fake-local"
+    def __init__(self):
+        self.seen = []
+    def embed(self, texts):
+        self.seen.extend(texts)
+        return [[1.0, 0.5] for text in texts]
+    def generate(self, task, chunks):
+        c = chunks[0]
+        return [{"text": "Kaydedilmiş bir anı.", "kind": "recorded", "sources": [{"key": c["key"], "quote": c["text"][:40]}]}]
+
+
+def data(body="Limon Kafe'de kahve içtim.", **kw):
+    return dict(title="Tatil", body=body, event_date="2025-07-12", **kw)
+
+
+def test_sources_dates_and_exclusion(tmp_path):
+    store = Store(tmp_path / "journal.db")
+    included = store.save(data())
+    store.save(data("Gizli bilgi", analyze=False))
+    ai = FakeAI()
+    engine = Engine(store, ai)
+    result = engine.ask("Kafenin adı neydi?")
+    source = result["findings"][0]["sources"][0]
+    assert source["entry_id"] == included["id"]
+    assert source["event_date"] == "2025-07-12"
+    assert source["written_at"] == included["written_at"]
+    assert not any("Gizli" in text for text in ai.seen)
+    store.save(data("Değişmiş anı"), included["id"])
+    ai.seen.clear()
+    newer = engine.ask("Kafe?")
+    assert newer["revision"] > result["revision"]
+    assert "Değişmiş" in newer["findings"][0]["sources"][0]["quote"]
+    store.delete(included["id"])
+    assert engine.ask("Kafe?")["findings"] == []
+    assert not store.cached_vectors(ai.embedding_model)
+
+
+def test_hallucinated_or_nonliteral_citations_rejected(tmp_path):
+    store = Store(tmp_path / "journal.db")
+    chunks = chunks_for([store.save(data())])
+    valid = {"text": "Bir yorum", "kind": "inference", "sources": [{"key": chunks[0]["key"], "quote": "Limon Kafe"}]}
+    bad_key = {**valid, "sources": [{"key": "invented", "quote": "Limon Kafe"}]}
+    bad_quote = {**valid, "sources": [{"key": chunks[0]["key"], "quote": "Mavi Kafe"}]}
+    assert validated_findings([valid, bad_key, bad_quote, {}, None], chunks) == [
+        {"text": "Bir yorum", "kind": "inference", "sources": [{"entry_id": chunks[0]["entry_id"], "title": "Tatil", "event_date": "2025-07-12", "written_at": chunks[0]["written_at"], "quote": "Limon Kafe", "key": chunks[0]["key"]}]}]
+
+
+def test_empty_scope_never_calls_model(tmp_path):
+    store = Store(tmp_path / "journal.db")
+    ai = FakeAI()
+    result = Engine(store, ai).ask("Ne oldu?")
+    assert not result["findings"] and result["message"]
+    assert ai.seen == []
+
+
+def test_cloud_and_invalid_vectors_rejected(monkeypatch):
+    monkeypatch.setenv("JOURNAL_MODEL", "qwen3:cloud")
+    with pytest.raises(AIError):
+        Ollama()
+    monkeypatch.delenv("JOURNAL_MODEL")
+    ai = Ollama()
+    monkeypatch.setattr(ai, "call", lambda *a, **kw: {"remote_host": "https://cloud.invalid"})
+    with pytest.raises(AIError):
+        ai.ensure_local("local-alias")
+    monkeypatch.setattr(ai, "call", lambda route, *a, **kw: {} if route == "show" else {"embeddings": [[float("nan")]]})
+    with pytest.raises(AIError):
+        ai.embed(["test"])
+
+
+@pytest.mark.parametrize("models", [None, {}, [None], [{}], [{"name": 3}]])
+def test_malformed_model_inventory_is_not_ready(monkeypatch, models):
+    ai = Ollama()
+    monkeypatch.setattr(ai, "call", lambda *a, **kw: {"models": models})
+    status = ai.status()
+    assert status["ready"] is False
+    assert status["error"]
+
+
+@pytest.mark.parametrize("boundary", [False, 0, [], {}, "2025-99-01"])
+def test_invalid_dates_do_not_broaden_search(tmp_path, boundary):
+    from journal.store import ValidationError
+    engine = Engine(Store(tmp_path / "journal.db"), FakeAI())
+    for kwargs in ({"start": boundary}, {"end": boundary}):
+        with pytest.raises(ValidationError):
+            engine.ask("Ne oldu?", **kwargs)
+    assert engine.ai.seen == []
+
+
+def test_date_scope_and_withdrawn_consent(tmp_path):
+    store = Store(tmp_path / "journal.db")
+    inside = store.save(data())
+    store.save({**data("Dönem dışındaki kayıt"), "event_date": "2024-01-01"})
+    ai = FakeAI()
+    engine = Engine(store, ai)
+    result = engine.ask("Ne oldu?", "2025-07-12", "2025-07-12")
+    assert result["searched_entries"] == 1
+    assert result["findings"][0]["sources"][0]["entry_id"] == inside["id"]
+    assert not any("Dönem dışındaki" in text for text in ai.seen)
+    store.save(data(analyze=False), inside["id"])
+    ai.seen.clear()
+    assert not engine.ask("Ne oldu?", "2025-07-12", "2025-07-12")["findings"]
+    assert not ai.seen
+    assert not store.cached_vectors(ai.embedding_model)
+
+
+@pytest.mark.parametrize("response", [{}, {"response": "not-json"}, {"response": "[]"}, {"response": '{"findings":null}'}, {"done_reason": "length"}])
+def test_malformed_generation_fails_closed(monkeypatch, response):
+    ai = Ollama()
+    monkeypatch.setattr(ai, "call", lambda route, *a, **kw: {} if route == "show" else response)
+    with pytest.raises(AIError):
+        ai.generate("Ne oldu?", [])
