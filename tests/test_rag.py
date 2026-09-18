@@ -116,3 +116,35 @@ def test_malformed_generation_fails_closed(monkeypatch, response):
     monkeypatch.setattr(ai, "call", lambda route, *a, **kw: {} if route == "show" else response)
     with pytest.raises(AIError):
         ai.generate("Ne oldu?", [])
+
+
+def test_generation_anchors_relative_dates_without_changing_sources(monkeypatch):
+    import json
+    from datetime import date
+    import journal.ollama as transport
+
+    class LocalDate:
+        @staticmethod
+        def today():
+            return date(2026, 1, 1)
+
+    monkeypatch.setattr(transport, "date", LocalDate)
+    ai = Ollama()
+    captured = {}
+
+    def call(route, payload=None, **kwargs):
+        if route == "generate":
+            captured.update(payload)
+            return {"response": '{"findings":[]}'}
+        return {}
+
+    monkeypatch.setattr(ai, "call", call)
+    chunks = [{"key": "record:0", "text": "Kahve içtim.",
+               "event_date": "2025-07-12", "written_at": "2026-01-01T09:00:00+00:00"}]
+    assert ai.generate("Geçen yıl ne yaptım?", chunks) == []
+    prompt = json.loads(captured["prompt"])
+    assert prompt["BAĞLAM"] == {"today_local": "2026-01-01"}
+    assert prompt["GÖREV"] == "Geçen yıl ne yaptım?"
+    assert prompt["KAYNAKLAR"] == chunks
+    assert "event_date" in captured["system"] and "written_at" in captured["system"]
+    assert "günlükten gelen bir kanıt sayma" in captured["system"]

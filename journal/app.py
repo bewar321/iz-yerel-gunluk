@@ -9,6 +9,7 @@ from werkzeug.exceptions import HTTPException
 from .store import Store, ValidationError
 from .ollama import Ollama, AIError
 from .rag import Engine
+from .insights import Insights
 
 
 def create_app(data_dir=None, ai=None):
@@ -118,5 +119,12 @@ def create_app(data_dir=None, ai=None):
         if not isinstance(data, dict):
             raise ValidationError("Geçerli bir soru gönderin.")
         return jsonify(engine.ask(data.get("question"), data.get("start"), data.get("end")))
+
+    @app.post("/api/insights")
+    def analyze_period():
+        data = request.get_json()
+        if not isinstance(data, dict):
+            raise ValidationError("Bir dönem seçin.")
+        return jsonify(Insights(store, model).analyze(data.get("start"), data.get("end"), data.get("mode", "period")))
 
     return app
