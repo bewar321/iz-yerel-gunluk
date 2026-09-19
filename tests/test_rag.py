@@ -148,3 +148,46 @@ def test_generation_anchors_relative_dates_without_changing_sources(monkeypatch)
     assert prompt["KAYNAKLAR"] == chunks
     assert "event_date" in captured["system"] and "written_at" in captured["system"]
     assert "günlükten gelen bir kanıt sayma" in captured["system"]
+
+
+@pytest.mark.parametrize("verdict", [None, {}, {"supported": [1]}, {"supported": []},
+                                     {"supported": [True, False]}, {"supported": ["true"]}])
+def test_malformed_support_verdict_fails_closed(monkeypatch, verdict):
+    import json
+    ai = Ollama()
+    replies = iter([{"response": json.dumps({"findings": [{"text": "Limon Kafe"}]})},
+                    {"response": json.dumps(verdict)}])
+    monkeypatch.setattr(ai, "call", lambda route, *a, **kw: {} if route == "show" else next(replies))
+    with pytest.raises(AIError, match="kaynak desteği"):
+        ai.generate("Kafenin adı?", [])
+
+
+def test_support_verification_keeps_only_supported_answers(monkeypatch):
+    import json
+    ai = Ollama()
+    candidates = [{"text": "Limon Kafe", "kind": "recorded", "sources": [{"key": "a", "quote": "Limon Kafe"}]},
+                  {"text": "Kariyer kursuna gittim", "kind": "inference", "sources": [{"key": "b", "quote": "kurs"}]}]
+    chunks = [{"key": "a", "text": "Limon Kafe"}, {"key": "b", "text": "kurs"}]
+    captured = []
+    def call(route, payload=None, **kwargs):
+        if route == "show":
+            return {}
+        captured.append(payload)
+        return {"response": json.dumps({"findings": candidates} if len(captured) == 1 else {"supported": [True, False]})}
+    monkeypatch.setattr(ai, "call", call)
+    assert ai.generate("Kafenin adı?", chunks) == [candidates[0]]
+    assert len(captured) == 2
+    verification = json.loads(captured[1]["prompt"])
+    assert verification["ADAYLAR"] == candidates and verification["KAYNAKLAR"] == chunks
+
+
+def test_question_echo_is_not_an_answer(monkeypatch):
+    import json
+    ai = Ollama()
+    calls = []
+    def call(route, *args, **kwargs):
+        calls.append(route)
+        return {} if route == "show" else {"response": json.dumps({"findings": [{"text": "Kafenin adı?"}]})}
+    monkeypatch.setattr(ai, "call", call)
+    assert ai.generate("Kafenin adı?", []) == []
+    assert calls == ["show", "generate"]

@@ -117,3 +117,42 @@ def test_production_server_accepts_large_backup_headers(monkeypatch, tmp_path):
                     b"Content-Length: 1073741825\r\n\r\n")
     assert parser.error is None
     assert not parser.completed
+
+
+@pytest.mark.parametrize("token", ["é", "ş", "invalidé"])
+def test_non_ascii_api_token_is_rejected(tmp_path, token):
+    app = create_app(tmp_path)
+    app.testing = True
+    response = app.test_client().get("/api/entries", headers={"X-Journal-Token": token})
+    assert response.status_code == 403
+
+
+def test_entry_snapshot_revision_cannot_overtake_entries(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    app = create_app(tmp_path)
+    store = app.extensions["store"]
+    original = store.save(entry())
+    read_entries = store.entries
+
+    def competing_writer():
+        if store.lock.acquire(blocking=False):
+            try:
+                store.save(entry(mood="İyi"), original["id"])
+            finally:
+                store.lock.release()
+
+    def read_while_writer_attempts(*args, **kwargs):
+        snapshot = read_entries(*args, **kwargs)
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            pool.submit(competing_writer).result(timeout=5)
+        return snapshot
+
+    monkeypatch.setattr(store, "entries", read_while_writer_attempts)
+    auth = {"X-Journal-Token": app.config["LOCAL_TOKEN"]}
+    response = app.test_client().get("/api/entries", headers=auth)
+    assert response.status_code == 200
+    assert response.json == {"entries": [original], "revision": 1}
+    # A writer can still update after the response, advancing the next snapshot.
+    edited = store.save(entry(mood="İyi"), original["id"])
+    response = app.test_client().get("/api/entries", headers=auth)
+    assert response.json == {"entries": [edited], "revision": 2}

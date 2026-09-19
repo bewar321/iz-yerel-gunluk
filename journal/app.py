@@ -36,7 +36,7 @@ def create_app(data_dir=None, ai=None):
             return jsonify(error="Farklı kaynaktan gelen istek reddedildi."), 403
         if request.path.startswith("/api/"):
             supplied = request.headers.get("X-Journal-Token", "")
-            if not secrets.compare_digest(supplied, token):
+            if not supplied.isascii() or not secrets.compare_digest(supplied, token):
                 return jsonify(error="Oturum yenilendi. Sayfayı yeniden açın."), 403
 
     @app.after_request
@@ -69,7 +69,8 @@ def create_app(data_dir=None, ai=None):
 
     @app.get("/api/entries")
     def list_entries():
-        return jsonify(entries=store.entries(request.args.get("start"), request.args.get("end")), revision=store.revision())
+        with store.lock:
+            return jsonify(entries=store.entries(request.args.get("start"), request.args.get("end")), revision=store.revision())
 
     @app.get("/api/entries/<entry_id>")
     def get_entry(entry_id):
