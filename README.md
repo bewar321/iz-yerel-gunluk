@@ -26,7 +26,7 @@ python3 scripts/setup.py
 macOS'ta betik resmî Ollama 0.34.2 çalıştırıcısını proje içindeki `data/runtime/` dizinine
 indirir; sistem uygulamalarını değiştirmez. Linux/Windows'ta önce
 [Ollama](https://ollama.com/download) kurun, sonra aynı betiği çalıştırın.
-Kurulum `qwen3:4b` ve `embeddinggemma:latest` modellerini indirir.
+Kurulum `qwen3:4b-instruct` ve `embeddinggemma:latest` modellerini indirir.
 Modeller kendi lisanslarına tabidir; uygulamanın MIT lisansı model ağırlıklarını kapsamaz.
 
 **macOS:** `Başlat.command` dosyasını çift tıklayın.
@@ -54,7 +54,7 @@ source .venv/bin/activate
 python3 -m pip install -r requirements.txt
 # Ayrı terminalde (model klasörünü açıkça seçebilirsiniz):
 OLLAMA_NO_CLOUD=1 ollama serve
-ollama pull qwen3:4b
+ollama pull qwen3:4b-instruct
 ollama pull embeddinggemma
 python3 -m journal
 ```

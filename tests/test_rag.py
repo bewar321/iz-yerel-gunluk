@@ -191,3 +191,50 @@ def test_question_echo_is_not_an_answer(monkeypatch):
     monkeypatch.setattr(ai, "call", call)
     assert ai.generate("Kafenin adı?", []) == []
     assert calls == ["show", "generate"]
+
+
+def test_verifier_sees_only_cited_excerpt_not_uncited_claims(monkeypatch):
+    import json
+    ai = Ollama()
+    candidate = {"text": "Yürüyüş rahatlamama yardımcı oldu.", "kind": "recorded",
+                 "sources": [{"key": "a", "quote": "Yürüyüş iyi geldi."}]}
+    captured = []
+    def call(route, payload=None, **kwargs):
+        if route == "show":
+            return {}
+        captured.append(payload)
+        return {"response": json.dumps({"findings": [candidate]} if len(captured) == 1
+                                       else {"supported": [True]})}
+    monkeypatch.setattr(ai, "call", call)
+    chunks = [{"key": "a", "title": "Akşam", "event_date": "2026-09-18",
+               "text": "Yoğun çalıştım. Yürüyüş iyi geldi. Erken yatacağım.",
+               "context": "Önceki AI yorumu"}]
+    assert ai.generate("Bana ne iyi geldi?", chunks) == [candidate]
+    evidence = json.loads(captured[1]["prompt"])["KAYNAKLAR"]
+    assert evidence == [{"key": "a", "title": "Akşam", "event_date": "2026-09-18",
+                         "text": "Yürüyüş iyi geldi."}]
+
+
+@pytest.mark.parametrize("answer", ["Akşam", "2026-01-01: Akşam - İyi", "x" * 360, "x" * 361])
+def test_bare_source_title_and_whole_long_source_are_not_summaries(monkeypatch, answer):
+    import json
+    ai = Ollama()
+    calls = []
+    def call(route, *args, **kwargs):
+        calls.append(route)
+        return {} if route == "show" else {"response": json.dumps({"findings": [{"text": answer}]})}
+    monkeypatch.setattr(ai, "call", call)
+    assert ai.generate("Dönemi özetle", [{"key": "a", "title": "Akşam", "text": "x" * 361}], summary=True) == []
+    assert calls == ["show", "generate"]
+
+
+def test_factual_answer_may_equal_source_title(monkeypatch):
+    import json
+    ai = Ollama()
+    candidate = {"text": "Limon Kafe", "kind": "recorded",
+                 "sources": [{"key": "a", "quote": "Limon Kafe"}]}
+    replies = iter([{"response": json.dumps({"findings": [candidate]})},
+                    {"response": json.dumps({"supported": [True]})}])
+    monkeypatch.setattr(ai, "call", lambda route, *a, **kw: {} if route == "show" else next(replies))
+    assert ai.generate("Kafenin adı?", [{"key": "a", "title": "Limon Kafe",
+                       "text": "Limon Kafe'de kahve içtim."}]) == [candidate]

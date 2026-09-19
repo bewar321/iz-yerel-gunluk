@@ -48,7 +48,7 @@ def main():
     process = start_ollama()
     try:
         env = dict(os.environ, OLLAMA_HOST="127.0.0.1:11434", OLLAMA_NO_CLOUD="1")
-        for model in ("qwen3:4b", "embeddinggemma:latest"):
+        for model in ("qwen3:4b-instruct", "embeddinggemma:latest"):
             subprocess.run([ollama_path(), "pull", model], env=env, check=True)
         print("Hazır. macOS: Başlat.command dosyasını açın. Diğer sistemler: .venv Python ile scripts/run.py çalıştırın.")
     finally:

@@ -69,7 +69,7 @@ function openEditor(id=null,kind='journal'){
 }
 function setBusy(value){state.busy=value;document.querySelectorAll('#ask-form button[type=submit],#period-form button[type=submit],#helpful-form button[type=submit]').forEach(b=>b.disabled=value);}
 function findingNode(f){
-  const box=el('article','finding');box.append(el('span','pill',f.kind==='inference'?'AI çıkarımı':'AI özeti · yazılanlardan'),el('p','',f.text));
+  const box=el('article','finding');box.append(el('span','pill',f.kind==='inference'?'AI çıkarımı':'Yazılanlardan özet'),el('p','',f.text));
   for(const s of f.sources){const b=el('button','source');b.type='button';b.append(el('blockquote','',s.quote),el('small','',`${s.title} · Olay: ${formatDate(s.event_date)} · Yazıldı: ${formatDate(s.written_at)} ↗`));b.onclick=()=>openEditor(s.entry_id);box.append(b);}return box;
 }
 function resultIntro(){const intro=el('div','result-intro');intro.append(el('span','pill','YEREL AI'),el('span','','AI yorumlarını özgün alıntılarla kontrol et.'));return intro;}
