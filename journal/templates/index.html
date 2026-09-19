@@ -1,1 +1,57 @@
-<!doctype html><html lang="tr"><meta charset="utf-8"><title>Yerel Günlük</title><body><h1>Yerel Günlük</h1><p>Yerel veri katmanı hazır. Arayüz sonraki aşamada tamamlanacak.</p></body></html>
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="journal-token" content="{{ token }}"><title>İz — Yerel Günlük</title>
+<link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">İçeriğe geç</a>
+<aside class="sidebar">
+<a class="brand" href="#journal" aria-label="İz günlük ana sayfa"><span class="brand-mark">i.</span><span>iz<span class="brand-sub">KENDİNE BİR ALAN</span></span></a>
+<div class="nav-label">GÜNLÜĞÜN</div>
+<nav aria-label="Ana menü">
+<button class="nav active" data-view="journal"><span aria-hidden="true">▤</span> Günlüğüm <span id="nav-count" class="count">0</span></button>
+<button class="nav" data-view="ask"><span aria-hidden="true">⌕</span> Geçmişime sor</button>
+<button class="nav" data-view="period"><span aria-hidden="true">◴</span> Zaman içinde</button>
+<button class="nav" data-view="decisions"><span aria-hidden="true">⑂</span> Kararlarım</button>
+<button class="nav" data-view="helpful"><span aria-hidden="true">✧</span> Bana iyi gelenler</button>
+</nav>
+<div class="sidebar-bottom"><div class="private-note"><span class="private-dot"></span> Yalnızca senin bilgisayarında<p>Hikâyen burada kalır.</p></div><button class="nav" data-view="settings"><span aria-hidden="true">⚙</span> Ayarlar ve yedekler</button><span class="version">İZ / YEREL GÜNLÜK · 0.1</span></div>
+</aside>
+<div class="workspace">
+<header class="topbar"><span id="today"></span><div class="top-actions"><span id="ai-status" class="status">Yerel AI kontrol ediliyor</span><button class="button primary small" id="new-top">＋ Yeni kayıt</button></div></header>
+<main id="main" tabindex="-1">
+<section id="view-journal" class="view">
+<div class="eyebrow">HER GÜN, KENDİNE BİRAZ DAHA YAKIN.</div>
+<div class="page-title"><h1>Hayatından kalan izler.</h1><p>Bugünü yaz. Geçmişini hatırla. Kendini zaman içinde keşfet.</p></div>
+<div class="hero"><div><span class="eyebrow">BUGÜNÜN SAYFASI</span><h2>Bugün sende ne kaldı?</h2><p>Büyük bir karar, küçük bir sevinç ya da zihnini meşgul eden bir düşünce. Burada hepsine yer var.</p><button class="button primary" id="new-hero">Yazmaya başla <span aria-hidden="true">↗</span></button></div><div class="hero-art" aria-hidden="true"><div class="orbit one"></div><div class="orbit two"></div><div class="orbit three"></div><span class="art-star">✳</span><span class="art-note">Küçük anlar.<br>Uzun hikâyeler.</span></div></div>
+<div class="section-top"><h2>Sayfaların <span id="entry-count" class="muted-count">0 kayıt</span></h2><label class="search"><span aria-hidden="true">⌕</span><input id="entry-search" type="search" placeholder="Sayfalarında ara…" aria-label="Günlük kayıtlarında ara"></label></div>
+<div id="entries" class="entry-grid"></div>
+</section>
+<section id="view-ask" class="view" hidden>
+<div class="eyebrow">KAYNAĞI OLAN BİR HAFIZA</div><div class="page-title"><h1>Geçmişine bir soru sor.</h1><p>Cevapların, kendi yazdıklarından. Tarihleri ve özgün alıntılarıyla.</p></div>
+<form id="ask-form" class="panel"><label class="field-label" for="question">Neyi hatırlamak istersin?</label><textarea id="question" rows="3" maxlength="1000" required placeholder="Geçen yıl tatilde gittiğim kafenin adı neydi?"></textarea><div class="suggestions"><button type="button" data-question="Kariyerimle ilgili hangi kaygılardan bahsetmişim?">Kariyer kaygılarım</button><button type="button" data-question="Son doğum günümde kimlerle birlikteydim?">Doğum günü anılarım</button><button type="button" data-question="Hangi deneyimlerin bana iyi geldiğini yazmışım?">Bana iyi gelen deneyimler</button></div><details class="date-details"><summary>Aranacak dönemi seç <span>İsteğe bağlı · olay tarihine göre</span></summary><div class="form-row"><label>Başlangıç<input type="date" id="ask-start"></label><label>Bitiş<input type="date" id="ask-end"></label></div></details><div class="form-footer"><span class="hint">İlk sorguda yerel arama indeksi hazırlanır.</span><button class="button primary" type="submit">Günlüğüme sor ↗</button></div></form>
+<div id="ask-result" class="results" aria-live="polite"></div>
+</section>
+<section id="view-period" class="view" hidden>
+<div class="eyebrow">BÜTÜNÜ GÖRMEK İÇİN BİR ADIM GERİ</div><div class="page-title"><h1>Zaman içinde sen.</h1><p>Konuların, duyguların ve değişen bakış açın. Seçtiğin dönemin tüm izinli kayıtlarıyla.</p></div>
+<form id="period-form" class="panel period-form"><div class="form-row"><label>Başlangıç<input type="date" id="period-start" required></label><label>Bitiş<input type="date" id="period-end" required></label><button class="button primary" type="submit">Dönemi incele ↗</button></div><p class="hint">Olay tarihine göre incelenir. Uzun dönemlerde analiz birkaç dakika sürebilir.</p></form><div id="period-result" class="results" aria-live="polite"></div>
+</section>
+<section id="view-decisions" class="view" hidden>
+<div class="eyebrow">O GÜNKÜ BEKLENTİN, BUGÜNKÜ BAKIŞIN</div><div class="page-title"><h1>Kararlarının hikâyesi.</h1><p>Neden seçtin, ne bekledin, sonrasında ne oldu? Kendi kelimelerinle yan yana.</p></div><button id="new-decision" class="button primary">＋ Bir karar kaydet</button><div id="decisions" class="decision-grid"></div>
+</section>
+<section id="view-helpful" class="view" hidden>
+<div class="eyebrow">KENDİ DENEYİMLERİNDEN BİR HATIRLATMA</div><div class="page-title"><h1>Sana iyi gelenler.</h1><p>Geçmişte yardımcı olduğunu yazdığın küçük şeyleri yeniden bul.</p></div>
+<form id="helpful-form" class="panel period-form"><div class="form-row"><label>Başlangıç<input type="date" id="helpful-start" required></label><label>Bitiş<input type="date" id="helpful-end" required></label><button class="button primary" type="submit">Yazdıklarımdan bul ↗</button></div><p class="hint">Genel tavsiyeler yerine, kendi kaydettiğin deneyimler kaynaklarıyla gösterilir.</p></form><div id="helpful-result" class="results" aria-live="polite"></div>
+</section>
+<section id="view-settings" class="view" hidden>
+<div class="eyebrow">SENİN VERİN, SENİN KONTROLÜN</div><div class="page-title"><h1>Kendine ait bir alan.</h1><p>Yerel AI durumunu kontrol et, günlüklerini yedekle ve geri yükle.</p></div>
+<div class="settings-grid"><div class="panel"><span class="eyebrow">YEREL AI</span><h2 id="model-title">Kontrol ediliyor…</h2><p id="model-detail"></p><pre id="model-commands" hidden></pre><button class="button secondary" id="check-ai">Durumu yenile</button><p class="hint">Günlük metinleri yalnızca bilgisayarındaki modele iletilir. İlk model indirmesi internet gerektirir.</p></div><div class="panel"><span class="eyebrow">YEDEKLER</span><h2>Sayfalarını yanında tut.</h2><p>Yedek, günlüklerin ve kendi etiketlerini içerir. Arama indeksi ihtiyaç olduğunda yeniden oluşturulur.</p><button class="button secondary" id="export">Yedeği indir ↓</button><hr><label class="field-label" for="backup-file">Bir yedekten geri yükle</label><input type="file" id="backup-file" accept=".json,application/json"><p class="hint">Geri yükleme mevcut tüm kayıtların yerini alır. Önce güncel bir yedek indir.</p><button class="button secondary" id="restore">Yedeği geri yükle</button></div></div>
+<div class="note-panel"><h3>Gizlilik ve kaynaklar</h3><p>Uygulama yalnızca bu bilgisayardan erişilebilir. Telemetri ve bulut bağlantısı içermez. Günlük ve yedek dosyaları uygulama tarafından şifrelenmez; bilgisayarının kullanıcı hesabını ve disk şifrelemesini kullan.</p><p>AI özetleri hata yapabilir. Alıntıların kayıtta bulunduğu kontrol edilir; bu, yorumun doğru olduğunu garanti etmez. Duygu etiketleri senin özbildirimindir; analizler teşhis değildir.</p></div>
+</section>
+</main><footer class="page-footer">Bir günün tamamını yazmak zorunda değilsin. Bir cümle de bir iz bırakır.</footer>
+</div>
+<dialog id="editor" aria-labelledby="editor-heading"><form id="entry-form"><div class="dialog-header"><div><span class="eyebrow">KENDİ KELİMELERİNLE</span><h2 id="editor-heading">Yeni bir sayfa.</h2></div><button type="button" id="close-editor" class="icon-button" aria-label="Düzenleyiciyi kapat">×</button></div><input type="hidden" id="entry-id"><label>Başlık<input id="entry-title" maxlength="160" required placeholder="Bu güne bir başlık ver…"></label><div class="form-row"><label>Olay tarihi<input type="date" id="entry-date" required></label><label>Kayıt türü<select id="entry-kind"><option value="journal">Günlük</option><option value="decision">Karar</option></select></label><label>Duygum<select id="entry-mood"><option value="">Etiket yok</option><option>Çok zor</option><option>Zor</option><option>Dengeli</option><option>İyi</option><option>Çok iyi</option></select></label></div><label>Bugün neler oldu?<textarea id="entry-body" rows="7" maxlength="20000" required placeholder="Burada doğru ya da yanlış bir başlangıç yok…"></textarea></label><div id="decision-fields" hidden><div class="form-row"><label>Bu kararı neden aldım?<textarea id="entry-reason" rows="3" maxlength="5000"></textarea></label><label>Ne olmasını bekliyorum?<textarea id="entry-expectation" rows="3" maxlength="5000"></textarea></label></div><label>Sonrasında ne oldu?<textarea id="entry-outcome" rows="3" maxlength="5000" placeholder="Sonucu henüz bilmiyorsan boş bırak. Daha sonra ekleyebilirsin."></textarea></label></div><details id="helpful-details"><summary>Bana iyi gelen bir şey oldu mu?</summary><label><span class="sr-only">Bana iyi gelenler notu</span><textarea id="entry-helpful_note" rows="2" maxlength="5000" placeholder="Yardımcı olduğunu düşündüğün şeyi kendi kelimelerinle yaz."></textarea></label></details><label class="checkbox"><input type="checkbox" id="entry-analyze" checked><span>Bu kayıt AI aramasına ve analizlerine dahil olsun.</span></label><p id="written-at" class="hint"></p><div class="dialog-footer"><button type="button" id="delete-entry" class="button danger" hidden>Kaydı sil</button><span class="hint">Yalnızca bu bilgisayarda saklanır.</span><button type="submit" class="button primary">Kaydet</button></div><p id="editor-error" role="alert" class="error" hidden></p></form></dialog>
+<div id="toast" class="toast" role="status" hidden></div>
+</body></html>
