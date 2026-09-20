@@ -3,3 +3,70 @@
 
 /* Keep supporting labels readable against the paper background. */
 .hint{color:#69765e}.eyebrow,.nav-label{color:#657359}.muted-count,.card-meta,.source small{color:#6d7863}.decision-cols h3{color:#687b59}.card-bottom{color:#657653}.page-footer{color:#707d62}
+
+/* Garden palette: ivory, lively leaf green and restrained iris accents. */
+:root{--bg:#fafbf6;--paper:#ffffff;--ink:#293f35;--muted:#607267;--line:#dce6dc;--green:#247348;--pale:#e5f3e5;--accent:#8074b2;--iris-ink:#65558f;--iris-pale:#f1edf8;--heading:#234f36;--cream:#fffdf5}
+body{background:var(--bg)}
+.sidebar{background:#edf4eb;border-color:var(--line);color:var(--heading)}
+.brand-mark{background:var(--green);color:#fffdf5;border-radius:3px 3px 15px 3px}
+.brand-sub,.sidebar .nav-label{color:#5d7464}
+.nav{color:#4f6959;border-radius:4px}
+.nav:hover{background:#e0ecdf}
+.nav.active{background:#dbefdf;color:#245a39;box-shadow:inset 3px 0 var(--accent)}
+.nav.active>span:first-child,.nav[data-view=ask]>span:first-child{color:var(--iris-ink)}
+.count{background:#fffdf5;color:#38654f}
+.private-note{color:#4f6959;border-color:#cfdfcf}
+.private-note p,.version{color:#607267}
+.private-dot{background:var(--green)}
+.topbar{background:var(--cream);border-bottom-color:var(--line)}
+.status{border-color:#cbdcca;border-radius:4px}
+.status.ready{background:#e5f3e5;color:#24633e;border-color:#bddcc2}
+h1,h2,.entry-card h3{color:var(--heading)}
+.eyebrow,.nav-label{color:#55725e;letter-spacing:1.4px}
+.primary{background:var(--green);color:#fffaf0}
+.primary:hover{background:#195b36}
+.button{border-radius:4px}
+.secondary{background:var(--paper)}
+.secondary:hover{border-color:#91b399;background:#edf4eb}
+.hero{background:#e1f0d6;border:1px solid #c4dfb3;border-radius:5px;box-shadow:none}
+.hero h2{color:#275a34}
+.hero p{color:#4f5a41}
+.hero .eyebrow{color:#4b5a3d}
+.hero-art{background:url('/static/branch.svg') center/contain no-repeat}
+.orbit,.art-star{display:none}
+.art-note{color:#4e593f;right:0;bottom:-5px;transform:rotate(-5deg)}
+.entry-card,.panel,.finding,.decision-card{border-radius:5px;box-shadow:none}
+.entry-card:hover{border-color:#91b399}
+.empty{border:1px dashed #cbdcca;background:var(--cream);border-radius:4px}
+.empty-symbol{color:#596c43}
+.search{border-radius:4px}
+.search span,.icon-button{color:#5b6748}
+input,textarea,select{background:#ffffff;border-color:#bbcdbd;border-radius:4px}
+textarea::placeholder,input::placeholder{color:#6b7b70}
+.field-label,label{color:#42614d}
+.hint,.muted-count,.card-meta,.source small,.date-details summary span{color:#607267}
+.pill{background:#ddf0df;color:#28653e;border-radius:4px}
+.pill.warm{background:#f7f1d9;color:#696037}
+.suggestions button{background:#f3f7ef;color:#4f6959;border-color:var(--line);border-radius:4px}
+.suggestions button:hover{background:var(--iris-pale);border-color:#c8bddf;color:var(--iris-ink)}
+#view-ask>.eyebrow,#view-period>.eyebrow{color:var(--iris-ink)}
+.result-intro .pill{background:var(--iris-pale);color:var(--iris-ink)}
+.month-header{border-bottom-color:#dcd3eb}
+.month-header h2{border-left:3px solid var(--accent);padding-left:12px}
+details summary,.result-intro,.card-bottom{color:#4f623f}
+.finding>p{color:#3e4e32}
+.source{background:#f1f6ed;border-left-color:var(--accent);color:#4d654f}
+.source:hover{background:#e5f0e3}
+.note-panel,.settings-grid pre{background:#f1f6ed}
+.coverage-stats strong{color:var(--green)}
+.coverage-stats span{color:#62684d}
+.decision-cols>div{border-color:#b0b98e}
+.decision-cols h3{color:#55725e}
+.page-footer{color:#607267}
+dialog{border-radius:6px;box-shadow:0 20px 80px #294e3c22}
+dialog::backdrop{background:#294e3c55}
+.toast{background:var(--green);color:#fffdf5;border-radius:4px}
+.loading{background:#edf4eb;border-color:#cbdcca;color:#405c43}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,summary:focus-visible{outline-color:var(--accent)}
+.sidebar button:focus-visible,.sidebar a:focus-visible{outline-color:var(--accent)}
+@media(max-width:760px){.sidebar{border-bottom-color:var(--line)}.sidebar-bottom .nav{color:#4f6959}.hero{padding:25px}.topbar{background:var(--cream)}}
