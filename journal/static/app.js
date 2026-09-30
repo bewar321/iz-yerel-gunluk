@@ -116,4 +116,4 @@ for(const prefix of ['period','helpful']){$(prefix+'-start').value=start;$(prefi
 navigate(location.hash.slice(1));refresh().catch(e=>fail($('entries'),e));checkAI();
 // Clear visible derived results on changes from another tab; nothing is cached in browser storage.
 setInterval(async()=>{if(document.hidden)return;try{const data=await api('revision');if(state.revision!==null&&data.revision!==state.revision)await refresh();}catch{}},4000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){invalidateResults('Güncel sonuçlar için yeniden sorgula.');refresh().catch(()=>{});}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh().catch(()=>{});});

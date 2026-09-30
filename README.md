@@ -80,7 +80,7 @@ Bulut model adları ve uzak modele yönlendiren modeller reddedilir.
 aktarılmaz. Yalnız deneme için ayrı bir veri klasörüyle başlatıp ayarlardan geri yükleyebilirsin:
 
 ```bash
-python3 -m journal --port 8766 --data-dir ./data/demo
+.venv/bin/python3 -m journal --port 8766 --data-dir ./data/demo
 ```
 
 ## Gizlilik ve doğruluk sınırları
