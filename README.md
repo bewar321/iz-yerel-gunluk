@@ -122,7 +122,8 @@ CI Python 3.9 ve 3.12 üzerinde çalışır. Onaylanmış geliştirme kapsamı `
 
 Yalnız kodu ve kurgu örnekleri paylaşın. `.gitignore` veri/model/venv dosyalarını dışarıda tutar;
 kişisel bir JSON yedeğini proje içine eklemeyin. Yayımlamadan önce `git ls-files` ile içeriği inceleyin.
-Bu proje için henüz uzak depo ayarlanmadı; uygulama kurulum sırasında GitHub'a veri yüklemez.
+Projenin GitHub deposu: [bewar321/iz-yerel-gunluk](https://github.com/bewar321/iz-yerel-gunluk) (private).
+Uygulama kurulum veya kullanım sırasında GitHub'a günlük verisi yüklemez.
 
 Kaynak belgeler: [Ollama embeddings](https://docs.ollama.com/api/embed),
 [structured generation](https://docs.ollama.com/api/generate), [yerel çalışma ayarları](https://docs.ollama.com/faq).
