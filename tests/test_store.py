@@ -102,7 +102,7 @@ def test_backup_above_previous_record_and_http_limits(tmp_path):
     assert len(store.entries()) == 10001
 
 
-def test_production_server_accepts_large_backup_headers(monkeypatch, tmp_path):
+def test_production_server_bounds_backup_headers(monkeypatch, tmp_path, capsys):
     import sys
     from journal import __main__ as launcher
     from waitress.adjustments import Adjustments
@@ -112,11 +112,74 @@ def test_production_server_accepts_large_backup_headers(monkeypatch, tmp_path):
     monkeypatch.setattr(sys, "argv", ["journal", "--data-dir", str(tmp_path)])
     monkeypatch.setattr(launcher, "serve", lambda app, **kwargs: settings.update(kwargs))
     launcher.main()
+    assert (tmp_path / "access.key").read_text() not in capsys.readouterr().out
     parser = HTTPRequestParser(Adjustments(**settings))
     parser.received(b"POST /api/restore HTTP/1.1\r\nHost: localhost\r\n"
-                    b"Content-Length: 1073741825\r\n\r\n")
-    assert parser.error is None
-    assert not parser.completed
+                    b"Content-Length: 134217729\r\n\r\n")
+    assert parser.error is not None
+    allowed = HTTPRequestParser(Adjustments(**settings))
+    allowed.received(b"POST /api/restore HTTP/1.1\r\nHost: localhost\r\n"
+                     b"Content-Length: 20000000\r\n\r\n")
+    assert allowed.error is None
+
+
+def test_access_key_is_private_and_not_served_in_home(tmp_path):
+    import os
+    app = create_app(tmp_path)
+    key = app.config["LOCAL_TOKEN"]
+    assert (tmp_path / "access.key").read_text() == key
+    if os.name == "posix":
+        assert (tmp_path / "access.key").stat().st_mode & 0o077 == 0
+    home = app.test_client().get("/").text
+    assert key not in home and 'journal-token' not in home
+    assert create_app(tmp_path).config["LOCAL_TOKEN"] == key
+    client = app.test_client()
+    assert client.get("/api/backup").status_code == 403
+    assert client.get("/api/backup", headers={"X-Journal-Token": key}).status_code == 200
+
+
+@pytest.mark.parametrize("route,payload", [
+    ("ask", {"question": "Ne oldu?"}),
+    ("insights", {"start": "2025-06-01", "end": "2025-06-30"}),
+])
+def test_slow_model_does_not_block_read_or_edit_and_stale_answer_is_rejected(tmp_path, route, payload):
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    class BlockingAI:
+        embedding_model = "blocking-test"
+
+        def __init__(self):
+            self.entered = threading.Event()
+            self.release = threading.Event()
+
+        def embed(self, texts):
+            return [[1.0, 0.0] for _ in texts]
+
+        def generate(self, task, chunks, summary=False):
+            self.entered.set()
+            assert self.release.wait(5)
+            return []
+
+    ai = BlockingAI()
+    app = create_app(tmp_path, ai)
+    row = app.extensions["store"].save(entry())
+    auth = {"X-Journal-Token": app.config["LOCAL_TOKEN"]}
+
+    def analyze():
+        with app.test_client() as client:
+            return client.post("/api/" + route, json=payload, headers=auth).status_code
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        future = pool.submit(analyze)
+        try:
+            assert ai.entered.wait(3)
+            with app.test_client() as client:
+                assert client.get("/api/entries", headers=auth).status_code == 200
+                assert client.put("/api/entries/" + row["id"], json={**entry(), "mood": "İyi"}, headers=auth).status_code == 200
+        finally:
+            ai.release.set()
+        assert future.result(timeout=5) == 409
 
 
 @pytest.mark.parametrize("token", ["é", "ş", "invalidé"])

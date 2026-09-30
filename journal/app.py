@@ -6,10 +6,13 @@ from urllib.parse import urlsplit
 from flask import Flask, jsonify, render_template, request
 from werkzeug.exceptions import HTTPException
 
-from .store import Store, ValidationError
+from .store import Store, ValidationError, StaleSnapshot
 from .ollama import Ollama, AIError
 from .rag import Engine
 from .insights import Insights
+from .access import access_key
+
+MAX_RESTORE_BYTES = 128 * 1024 * 1024
 
 
 def create_app(data_dir=None, ai=None):
@@ -20,14 +23,13 @@ def create_app(data_dir=None, ai=None):
     model = ai or Ollama()
     engine = Engine(store, model)
     app.extensions["engine"] = engine
-    token = secrets.token_urlsafe(32)
+    token = access_key(root)
     app.config["LOCAL_TOKEN"] = token
 
     @app.before_request
     def local_only():
         # Backups grow with the journal; entry request limits must not cap restores.
-        if request.path != "/api/restore":
-            request.max_content_length = 16 * 1024 * 1024
+        request.max_content_length = MAX_RESTORE_BYTES if request.path == "/api/restore" else 16 * 1024 * 1024
         host = urlsplit("http://" + request.host).hostname
         if host not in ("127.0.0.1", "localhost", "::1"):
             return jsonify(error="Yalnızca yerel erişime izin verilir."), 403
@@ -55,6 +57,10 @@ def create_app(data_dir=None, ai=None):
     def model_error(exc):
         return jsonify(error=str(exc)), 503
 
+    @app.errorhandler(StaleSnapshot)
+    def stale_snapshot(exc):
+        return jsonify(error="Kayıtlar analiz sırasında değişti. Güncel kayıtlarla yeniden dene."), 409
+
     @app.errorhandler(KeyError)
     def missing(exc):
         return jsonify(error="Kayıt bulunamadı."), 404
@@ -65,7 +71,7 @@ def create_app(data_dir=None, ai=None):
 
     @app.get("/")
     def home():
-        return render_template("index.html", token=token)
+        return render_template("index.html")
 
     @app.get("/api/entries")
     def list_entries():

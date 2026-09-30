@@ -2,10 +2,11 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="journal-token" content="{{ token }}"><title>İz — Yerel Günlük</title>
+<title>İz — Yerel Günlük</title>
 <link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script>
 </head>
 <body>
+<section id="access-gate" class="access-gate" hidden><form id="access-form" class="panel"><span class="eyebrow">YEREL ERİŞİM</span><h1>Günlüğünü aç.</h1><p>Başlat.command ile açılan bağlantı erişim anahtarını otomatik getirir. Bu sayfayı elle açtıysan proje içindeki data/access.key dosyasındaki anahtarı buraya yazabilirsin.</p><label class="field-label" for="access-input">Erişim anahtarı</label><input id="access-input" type="password" autocomplete="off" required><button class="button primary" type="submit">Günlüğü aç</button><p id="access-error" class="error" role="alert" hidden></p></form></section>
 <a class="skip" href="#main">İçeriğe geç</a>
 <aside class="sidebar">
 <a class="brand" href="#journal" aria-label="İz günlük ana sayfa"><img class="brand-mark" src="/static/logo.svg" alt=""><span>İz<span class="brand-sub">KİŞİSEL · YEREL · SANA AİT</span></span></a>

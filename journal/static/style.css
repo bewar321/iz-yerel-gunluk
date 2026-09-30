@@ -174,3 +174,9 @@ input,textarea,select{font-size:15px;line-height:1.55}
 .page-footer{font-size:14px}
 .version{font-size:9px}
 @media(max-width:760px){body{font-size:15px}.nav{font-size:12px}.page-title p,.hero p{font-size:14px}.insight-card em{font-size:11px}.button{font-size:12px}.page-footer{font-size:13px}}
+body.locked .sidebar,body.locked .workspace,body.locked .skip{display:none}
+.access-gate{min-height:100vh;display:grid;place-items:center;padding:2rem;background:#eef5ee}
+.access-gate[hidden]{display:none}
+.access-gate .panel{width:min(100%,31rem);display:grid;gap:1rem}
+.access-gate h1{margin:0}
+.access-gate p{line-height:1.6}

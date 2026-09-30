@@ -44,6 +44,11 @@ Modeller kendi lisanslarına tabidir; uygulamanın MIT lisansı model ağırlık
 ```
 
 Arayüz: **http://127.0.0.1:8765**. Terminal açık kalmalıdır; Ctrl+C durdurur.
+Başlatıcı erişim anahtarını tarayıcıya otomatik aktarır. Adresi elle açarsanız proje içindeki
+`data/access.key` dosyasındaki anahtarı açılış ekranına girin. Anahtar
+`data/access.key` içinde yalnız işletim sistemi hesabınıza okunabilir izinlerle saklanır;
+bağlantıyı veya anahtarı başkalarıyla paylaşmayın. Tarayıcı bu anahtarı yerel site depolamasında
+tutar; aynı tarayıcıda sonraki açılışlarda tekrar girmeniz gerekmez.
 Model servisi hazır değilse günlük yazma ve yedekleme çalışır; AI ekranı kurulum durumunu gösterir.
 
 ### Elle çalıştırma / geliştirme
@@ -56,7 +61,7 @@ python3 -m pip install -r requirements.txt
 OLLAMA_NO_CLOUD=1 ollama serve
 ollama pull qwen3:4b-instruct
 ollama pull embeddinggemma
-python3 -m journal
+python3 -m journal  # tarayıcıda data/access.key içeriğini girin
 ```
 
 Model servisi yalnız `127.0.0.1:11434` üzerinden çağrılır. Çalıştırıcı yeni bir Ollama süreci
@@ -85,7 +90,9 @@ aktarılmaz. Yalnız deneme için ayrı bir veri klasörüyle başlatıp ayarlar
 
 ## Gizlilik ve doğruluk sınırları
 
-- Hesap, telemetri, uzak font/CDN veya bulut AI çağrısı yoktur. Web sunucusu yalnız loopback'e bağlanır.
+- Telemetri, uzak font/CDN veya bulut AI çağrısı yoktur. Web sunucusu yalnız loopback'e bağlanır.
+  Günlük API'si ayrıca, sahibi tarafından okunabilen dosyada tutulan erişim anahtarını gerektirir.
+  Bu anahtar aynı kullanıcı hesabındaki kötü amaçlı yazılımlara karşı koruma sağlamaz.
 - Veriler varsayılan olarak proje içindeki git-ignore edilmiş `data/journal.sqlite3` dosyasındadır.
   `JOURNAL_DATA_DIR` veya `--data-dir` ile başka bir yerel klasör seçilebilir.
 - Dosyalar uygulama tarafından şifrelenmez. Disk şifrelemesi ve işletim sistemi hesabı güvenliği kullanın.
@@ -98,8 +105,10 @@ aktarılmaz. Yalnız deneme için ayrı bir veri klasörüyle başlatıp ayarlar
   bir ayrıntı için modelin boş yanıt vermesi istenir; modeller yine hata yapabilir.
 - Soru-cevap en ilgili beş metin parçasını kullanır; tam dönem analizi değildir. Zaman içinde
   görünümü tüm izinli parçaları okur, fakat özetleme her ayrıntının çıktıya gireceğini garanti etmez.
-- Tarih filtreleri olay tarihine göredir. Göreli zaman yorumuna yerel bugünün tarihi verilir;
-  kesin sınırlar için tarih filtresi kullanın. Kayıt bulunmayan gün “olay olmadı” anlamına gelmez.
+- Tarih filtreleri olay tarihine göredir. “Geçen yıl/sene”, “bu yıl/ay”, “geçen ay” ve
+  “son 1–3 yıl” gibi açık göreli dönemler model çağrılmadan önce yerel takvime göre filtrelenir.
+  Diğer tarih ifadeleri için kesin sınırlar gerekiyorsa tarih filtresi kullanın.
+  Kayıt bulunmayan gün “olay olmadı” anlamına gelmez.
 - Duygu etiketleri özbildirimdir. AI çıkarımları ve “iyi gelenler” tıbbi teşhis veya tedavi önerisi değildir.
 - Tek süreç/tek kullanıcı için tasarlanmıştır. Aynı veri klasörüne birden fazla sunucu başlatmayın.
 
@@ -108,15 +117,20 @@ aktarılmaz. Yalnız deneme için ayrı bir veri klasörüyle başlatıp ayarlar
 Python/Flask + Waitress, SQLite, bağımlılıksız tarayıcı arayüzü, Ollama.
 Arama: parçalama + yerel embedding + kosinüs/kelime puanı; dönem analizi: ay bazında
 sınırlandırılmış bağlamlarla okuma ve özgün alıntıları koruyan kademeli özetleme.
-Veri değişimi ve analizler ortak kilitle seri yürütülür; uzun analiz sırasında kayıt işlemi bekleyebilir.
+Uzun model çağrıları sırasında kayıtlar okunup düzenlenebilir. Analiz sürerken kayıt değişirse
+eski sonuç gösterilmez; güncel verilerle yeniden denemeniz istenir. JSON geri yükleme üst sınırı
+128 MiB'dir; daha büyük yedekler için önce bölme/dönüştürme gerekir.
 
 ```bash
 source .venv/bin/activate
+python3 -m pip install -r requirements-dev.txt  # Python 3.10+ test ortamı
 python3 -m pytest
 ```
 
-Testler sahte model ile deterministik çalışır ve model indirmez. Gerçek model denemesi ayrıca yapılmalıdır.
-CI Python 3.9 ve 3.12 üzerinde çalışır. Onaylanmış geliştirme kapsamı `docs/do-task/yerel-gunluk/contract.md` içindedir.
+Temel testler sahte model ile deterministik çalışır ve model indirmez. Kurulu gerçek modellerle
+entegrasyon testi için `JOURNAL_LIVE_TEST=1 python3 -m pytest tests/test_live_rag.py` çalıştırın.
+CI Python 3.10 ve 3.12 üzerinde testleri, Python 3.9 üzerinde çalışma ortamı açılışını kontrol eder.
+Onaylanmış geliştirme kapsamı `docs/do-task/yerel-gunluk/contract.md` içindedir.
 
 ## GitHub'a paylaşma
 

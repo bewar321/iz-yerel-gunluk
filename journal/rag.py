@@ -1,12 +1,40 @@
 """Hybrid local retrieval; only validated source quotations leave the engine."""
 import math
 import re
+from datetime import date, timedelta
 from .ollama import AIError
-from .store import ValidationError, iso_date
+from .store import StaleSnapshot, ValidationError, iso_date
 
 
 def tokens(text):
     return set(re.findall(r"[^\W_]+", text.replace("I", "ı").replace("İ", "i").lower(), re.UNICODE))
+
+
+def inferred_dates(question, today=None):
+    """Resolve only unambiguous Turkish relative periods before retrieval."""
+    today = today or date.today()
+    text = question.replace("İ", "i").replace("I", "ı").lower()
+    if re.search(r"\bdeğil\b", text):
+        return None, None
+    periods = []
+    if re.search(r"\bgeçen\s+(?:yıl|sene)\b", text):
+        year = today.year - 1
+        periods.append((date(year, 1, 1), date(year, 12, 31)))
+    if re.search(r"\bbu\s+(?:yıl|sene)\b", text):
+        periods.append((date(today.year, 1, 1), today))
+    if re.search(r"\bgeçen\s+ay\b", text):
+        end = today.replace(day=1) - timedelta(days=1)
+        periods.append((end.replace(day=1), end))
+    if re.search(r"\bbu\s+ay\b", text):
+        periods.append((today.replace(day=1), today))
+    count = re.search(r"\bson\s+(bir|iki|üç|[1-3])\s+(?:yıl|sene)(?:dır|dir|lık|lik)?\b", text)
+    if count:
+        years = {"bir": 1, "iki": 2, "üç": 3, "1": 1, "2": 2, "3": 3}[count.group(1)]
+        start = today.replace(year=today.year - years, day=min(today.day, 28) if today.month == 2 else today.day)
+        periods.append((start, today))
+    if not periods:
+        return None, None
+    return min(start for start, _ in periods).isoformat(), max(end for _, end in periods).isoformat()
 
 
 def source_text(entry):
@@ -68,7 +96,7 @@ class Engine:
     def __init__(self, store, ai):
         self.store, self.ai = store, ai
 
-    def retrieve(self, question, entries):
+    def retrieve(self, question, entries, revision):
         chunks = chunks_for(entries)
         if not chunks:
             return []
@@ -77,7 +105,10 @@ class Engine:
         for start in range(0, len(pending), 16):
             batch = pending[start:start+16]
             vectors = self.ai.embed([c["text"] for c in batch])
-            self.store.put_vectors([(c["entry_id"], c["chunk_no"], c["text"], v) for c, v in zip(batch, vectors)], self.ai.embedding_model)
+            with self.store.lock:
+                if self.store.revision() != revision:
+                    raise StaleSnapshot()
+                self.store.put_vectors([(c["entry_id"], c["chunk_no"], c["text"], v) for c, v in zip(batch, vectors)], self.ai.embedding_model)
             for c, vector in zip(batch, vectors):
                 cached[(c["entry_id"], c["chunk_no"])] = (c["text"], vector)
         query = self.ai.embed([question])[0]
@@ -97,12 +128,25 @@ class Engine:
         for boundary in (start, end):
             if boundary is not None and boundary != "":
                 iso_date(boundary)
+        inferred_start, inferred_end = inferred_dates(question)
+        start = max(filter(None, (start, inferred_start)), default=None)
+        end = min(filter(None, (end, inferred_end)), default=None)
+        if start and end and start > end:
+            return {"findings": [], "message": "Sorudaki dönem ile seçtiğin tarih aralığı örtüşmüyor.",
+                    "revision": self.store.revision(), "searched_entries": 0, "used_entries": 0, "rejected_findings": 0}
         with self.store.lock:
             entries = self.store.entries(start, end, eligible=True)
-            selected = self.retrieve(question, entries)
-            raw = self.ai.generate(question, selected) if selected else []
-            findings = validated_findings(raw, selected)
-            return {"findings": findings, "message": "" if findings else "Bu soruyu yanıtlamak için günlüklerinde yeterli, doğrulanabilir bilgi bulamadım.",
-                    "revision": self.store.revision(), "searched_entries": len(entries),
-                    "used_entries": len({s["entry_id"] for f in findings for s in f["sources"]}),
-                    "rejected_findings": len(raw) - len(findings)}
+            revision = self.store.revision()
+        selected = self.retrieve(question, entries, revision)
+        with self.store.lock:
+            if self.store.revision() != revision:
+                raise StaleSnapshot()
+        raw = self.ai.generate(question, selected) if selected else []
+        findings = validated_findings(raw, selected)
+        with self.store.lock:
+            if self.store.revision() != revision:
+                raise StaleSnapshot()
+        return {"findings": findings, "message": "" if findings else "Bu soruyu yanıtlamak için günlüklerinde yeterli, doğrulanabilir bilgi bulamadım.",
+                "revision": revision, "searched_entries": len(entries),
+                "used_entries": len({s["entry_id"] for f in findings for s in f["sources"]}),
+                "rejected_findings": len(raw) - len(findings)}

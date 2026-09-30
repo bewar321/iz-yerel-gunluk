@@ -110,6 +110,28 @@ def test_date_scope_and_withdrawn_consent(tmp_path):
     assert not store.cached_vectors(ai.embedding_model)
 
 
+def test_relative_year_is_applied_before_retrieval(tmp_path, monkeypatch):
+    from datetime import date
+    import journal.rag as rag
+
+    class Clock(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 9, 30)
+
+    monkeypatch.setattr(rag, "date", Clock)
+    store = Store(tmp_path / "journal.db")
+    store.save({**data("Eski Sahil Kafe"), "event_date": "2024-07-12"})
+    recent = store.save({**data("Limon Kafe"), "event_date": "2025-07-12"})
+    engine = Engine(store, FakeAI())
+    result = engine.ask("Geçen yıl tatilde gittiğim kafe neydi?")
+    assert result["searched_entries"] == 1
+    assert result["findings"][0]["sources"][0]["entry_id"] == recent["id"]
+    assert engine.ask("Geçen sene ne oldu?", "2024-01-01", "2024-12-31")["searched_entries"] == 0
+    assert rag.inferred_dates("Son iki yıldır ne değişti?", date(2026, 9, 30)) == ("2024-09-30", "2026-09-30")
+    assert rag.inferred_dates("Geçen yıl ile bu yıl ne değişti?", date(2026, 9, 30)) == ("2025-01-01", "2026-09-30")
+
+
 @pytest.mark.parametrize("response", [{}, {"response": "not-json"}, {"response": "[]"}, {"response": '{"findings":null}'}, {"done_reason": "length"}])
 def test_malformed_generation_fails_closed(monkeypatch, response):
     ai = Ollama()

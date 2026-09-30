@@ -1,6 +1,17 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
-const token = document.querySelector('meta[name="journal-token"]').content;
+const accessFromUrl = location.hash.startsWith('#access=') ? location.hash.slice(8) : '';
+if (/^[A-Za-z0-9_-]{32,}$/.test(accessFromUrl)) {
+  localStorage.setItem('journal-access-key', accessFromUrl);
+  history.replaceState(null, '', location.pathname + location.search + '#journal');
+}
+let token = localStorage.getItem('journal-access-key') || '';
+function showAccessGate(message='') {
+  document.body.classList.add('locked');
+  $('access-gate').hidden=false;
+  $('access-error').textContent=message;
+  $('access-error').hidden=!message;
+}
 const state = {entries: [], revision: null, busy: false, formSnapshot: '', toastTimer: null, view: 'journal'};
 const fields = ['title','body','event_date','kind','mood','reason','expectation','outcome','helpful_note','analyze'];
 const fieldId = key => key === 'event_date' ? 'entry-date' : 'entry-'+key;
@@ -10,6 +21,7 @@ function el(tag, className, text) { const n=document.createElement(tag); if(clas
 function toast(text) { $('toast').textContent=text; $('toast').hidden=false; clearTimeout(state.toastTimer); state.toastTimer=setTimeout(()=>$('toast').hidden=true,5000); }
 async function api(path, options={}) {
   const response=await fetch('/api/'+path,{...options,headers:{'X-Journal-Token':token,'Content-Type':'application/json',...(options.headers||{})}});
+  if(response.status===403){localStorage.removeItem('journal-access-key');token='';showAccessGate('Erişim anahtarı geçersiz veya değişmiş. Başlat.command ile yeniden aç.');}
   let data; try {data=await response.json();} catch {throw new Error('Sunucudan yanıt alınamadı. Uygulamanın açık olduğundan emin ol.');}
   if(!response.ok) throw new Error(data.error||'İşlem tamamlanamadı.');
   return data;
@@ -113,7 +125,9 @@ window.addEventListener('hashchange',()=>navigate(location.hash.slice(1)));
 $('today').textContent=new Date().toLocaleDateString('tr-TR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 const today=localDay(),yearAgo=new Date();yearAgo.setFullYear(yearAgo.getFullYear()-1);const start=`${yearAgo.getFullYear()}-${String(yearAgo.getMonth()+1).padStart(2,'0')}-${String(yearAgo.getDate()).padStart(2,'0')}`;
 for(const prefix of ['period','helpful']){$(prefix+'-start').value=start;$(prefix+'-end').value=today;}
-navigate(location.hash.slice(1));refresh().catch(e=>fail($('entries'),e));checkAI();
+navigate(location.hash.slice(1));
+$('access-form').onsubmit=async e=>{e.preventDefault();token=$('access-input').value.trim();try{await refresh();localStorage.setItem('journal-access-key',token);document.body.classList.remove('locked');$('access-gate').hidden=true;$('access-input').value='';checkAI();}catch{showAccessGate('Anahtar doğrulanamadı. Başlat.command ile yeniden aç.');}};
+if(token){refresh().catch(e=>fail($('entries'),e));checkAI();}else showAccessGate();
 // Clear visible derived results on changes from another tab; nothing is cached in browser storage.
 setInterval(async()=>{if(document.hidden)return;try{const data=await api('revision');if(state.revision!==null&&data.revision!==state.revision)await refresh();}catch{}},4000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh().catch(()=>{});});

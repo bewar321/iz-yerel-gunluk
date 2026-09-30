@@ -18,6 +18,10 @@ class ValidationError(ValueError):
     pass
 
 
+class StaleSnapshot(RuntimeError):
+    pass
+
+
 def iso_date(value):
     if not isinstance(value, str) or len(value) != 10:
         raise ValidationError("Tarih YYYY-AA-GG biçiminde olmalı.")
