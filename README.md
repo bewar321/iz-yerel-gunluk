@@ -136,7 +136,7 @@ Onaylanmış geliştirme kapsamı `docs/do-task/yerel-gunluk/contract.md` içind
 
 Yalnız kodu ve kurgu örnekleri paylaşın. `.gitignore` veri/model/venv dosyalarını dışarıda tutar;
 kişisel bir JSON yedeğini proje içine eklemeyin. Yayımlamadan önce `git ls-files` ile içeriği inceleyin.
-Projenin GitHub deposu: [bewar321/iz-yerel-gunluk](https://github.com/bewar321/iz-yerel-gunluk) (private).
+Projenin GitHub deposu: [bewar321/iz-yerel-gunluk](https://github.com/bewar321/iz-yerel-gunluk) — MIT lisanslı açık kaynak proje.
 Uygulama kurulum veya kullanım sırasında GitHub'a günlük verisi yüklemez.
 
 Kaynak belgeler: [Ollama embeddings](https://docs.ollama.com/api/embed),
